@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:dev.max.ru)",
+      "WebFetch(domain:platform-api.max.ru)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(python3 -c \"import json,sys; [print\\(x[''''name'''']\\) for x in json.load\\(sys.stdin\\)]\")"
+    ]
+  }
+}

@@ -64,6 +64,34 @@ async function sendMaxMessage({ userId, chatId, text }) {
   }
 }
 
+async function editMaxMessage({ messageId, text }) {
+  const resp = await fetch(`${MAX_API}/messages?message_id=${messageId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: MAX_TOKEN,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text }),
+  })
+
+  const raw = await resp.text()
+
+  if (!resp.ok) {
+    throw new Error(`MAX edit failed: ${resp.status} ${raw}`)
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return raw
+  }
+}
+
+function extractMessageId(data) {
+  if (!data || typeof data !== 'object') return null
+  return data.message?.body?.mid ?? null
+}
+
 async function askOpenClaw({ userId, text }) {
   const resp = await fetch(`${OPENCLAW_URL}/v1/chat/completions`, {
     method: 'POST',
@@ -119,7 +147,7 @@ app.post('/webhook', async (req, res) => {
         await sendMaxMessage({
           userId,
           chatId,
-          text: 'Бот подключен. Напишите сообщение.',
+          text: 'Бот подключен.\nНапишите сообщение.',
         })
       } catch (err) {
         console.error('bot_started send error:', err)
@@ -138,31 +166,51 @@ app.post('/webhook', async (req, res) => {
         return
       }
 
+      // Отправляем индикатор ожидания
+      let waitingMessageId = null
+      try {
+        const waitingResp = await sendMaxMessage({ userId, chatId, text: '⏳\u200B' })
+        waitingMessageId = extractMessageId(waitingResp)
+        console.log('Waiting message sent, id:', waitingMessageId)
+      } catch (err) {
+        console.error('Failed to send waiting message:', err)
+      }
+
+      let answer = null
+      let openClawError = false
+
       try {
         console.log('OPENCLAW REQUEST TEXT:', text)
-
-        const answer = await askOpenClaw({ userId, text })
-
+        answer = await askOpenClaw({ userId, text })
         console.log('OPENCLAW ANSWER:', answer)
-
-        await sendMaxMessage({
-          userId,
-          chatId,
-          text: answer,
-        })
-
-        console.log('MAX OUTBOUND SENT')
       } catch (err) {
         console.error('message_created processing error:', err)
+        openClawError = true
+      }
 
+      const replyText = openClawError
+        ? 'Не удалось обработать сообщение.\nПопробуйте ещё раз.'
+        : answer
+
+      if (waitingMessageId) {
         try {
-          await sendMaxMessage({
-            userId,
-            chatId,
-            text: 'Не удалось обработать сообщение. Попробуйте ещё раз.',
-          })
+          await editMaxMessage({ messageId: waitingMessageId, text: replyText })
+          console.log('MAX MESSAGE EDITED')
+        } catch (editErr) {
+          console.error('Failed to edit waiting message, using fallback:', editErr)
+          try {
+            await sendMaxMessage({ userId, chatId, text: replyText })
+            console.log('MAX FALLBACK SENT')
+          } catch (sendErr) {
+            console.error('Fallback send error:', sendErr)
+          }
+        }
+      } else {
+        try {
+          await sendMaxMessage({ userId, chatId, text: replyText })
+          console.log('MAX OUTBOUND SENT (no waiting id)')
         } catch (sendErr) {
-          console.error('fallback send error:', sendErr)
+          console.error('Fallback send error:', sendErr)
         }
       }
 
