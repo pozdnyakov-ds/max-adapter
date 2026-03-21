@@ -163,4 +163,4 @@ MAX → (webhook + secret) → max-adapter → OpenClaw → ответ → MAX
 | `OPENCLAW_URL` | нет | URL OpenClaw API (по умолчанию `http://host.docker.internal:18789`) |
 | `OPENCLAW_TOKEN` | да | Токен OpenClaw Gateway |
 | `OPENCLAW_AGENT_ID` | нет | ID агента (по умолчанию `main`) |
-| `MAX_ALLOWED_USERS` | нет | Allowlist user_id через запятую. Если не задано — бот отвечает всем |
+| `ALLOWED_USERS` | нет | Allowlist user_id через запятую. Если не задано — бот отвечает всем |

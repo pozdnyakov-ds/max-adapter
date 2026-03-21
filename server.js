@@ -12,8 +12,8 @@ const OPENCLAW_URL = process.env.OPENCLAW_URL || 'http://host.docker.internal:18
 const OPENCLAW_TOKEN = process.env.OPENCLAW_TOKEN
 const OPENCLAW_AGENT_ID = process.env.OPENCLAW_AGENT_ID || 'main'
 
-const ALLOWED_USERS = process.env.MAX_ALLOWED_USERS
-  ? new Set(process.env.MAX_ALLOWED_USERS.split(',').map(s => s.trim()).filter(Boolean))
+const ALLOWED_USERS = process.env.ALLOWED_USERS
+  ? new Set(process.env.ALLOWED_USERS.split(',').map(s => s.trim()).filter(Boolean))
   : null
 
 if (!MAX_SECRET) {
