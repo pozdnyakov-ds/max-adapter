@@ -12,6 +12,10 @@ const OPENCLAW_URL = process.env.OPENCLAW_URL || 'http://host.docker.internal:18
 const OPENCLAW_TOKEN = process.env.OPENCLAW_TOKEN
 const OPENCLAW_AGENT_ID = process.env.OPENCLAW_AGENT_ID || 'main'
 
+const ALLOWED_USERS = process.env.MAX_ALLOWED_USERS
+  ? new Set(process.env.MAX_ALLOWED_USERS.split(',').map(s => s.trim()).filter(Boolean))
+  : null
+
 if (!MAX_SECRET) {
   console.error('MAX_SECRET is not set')
   process.exit(1)
@@ -143,6 +147,11 @@ app.post('/webhook', async (req, res) => {
       const userId = body?.user_id
       const chatId = body?.chat_id
 
+      if (ALLOWED_USERS && !ALLOWED_USERS.has(String(userId))) {
+        console.log(`bot_started: user ${userId} is not in allowlist, ignoring`)
+        return
+      }
+
       try {
         await sendMaxMessage({
           userId,
@@ -163,6 +172,11 @@ app.post('/webhook', async (req, res) => {
 
       if (!userId || !text) {
         console.log('Skip empty or invalid message')
+        return
+      }
+
+      if (ALLOWED_USERS && !ALLOWED_USERS.has(String(userId))) {
+        console.log(`message_created: user ${userId} is not in allowlist, ignoring`)
         return
       }
 
