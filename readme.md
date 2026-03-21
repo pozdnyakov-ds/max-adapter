@@ -8,7 +8,7 @@
 MAX → (webhook + secret) → max-adapter → OpenClaw → ответ → MAX
 ```
 
-Контейнер `max-adapter` работает в одной Docker-сети с OpenClaw и общается с ним через `host.docker.internal`.
+Контейнер `max-adapter` обращается к OpenClaw через `host.docker.internal` — специальный DNS-адрес, который резолвится в IP хост-машины. Трафик идёт: max-adapter → хост → OpenClaw. Флаг `--add-host=host.docker.internal:host-gateway` при запуске контейнера делает этот адрес доступным.
 
 ---
 
@@ -101,7 +101,10 @@ docker run -d \
 
 ### 6. Зарегистрировать webhook в MAX
 
-⚠️ URL должен быть доступен извне (не localhost).
+⚠️ Для работы webhook сервер должен быть доступен из интернета:
+- белый (публичный) IP-адрес или домен
+- обязателен HTTPS — MAX не принимает `http://`
+- порт 3001 должен быть открыт и проброшен (или стоять за reverse proxy, например nginx)
 
 ```bash
 curl -X POST https://api.max.ru/bot/v1/subscriptions \
