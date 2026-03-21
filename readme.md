@@ -66,7 +66,18 @@ docker build --no-cache -t max-adapter .
 
 ---
 
-## 5. Запустить max-adapter
+## 5. Создать файл переменных окружения
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Заполнить значения. Файл `.env` не коммитится в git.
+
+---
+
+## 6. Запустить max-adapter
 
 ```bash
 docker rm -f max-adapter 2>/dev/null || true
@@ -76,18 +87,14 @@ docker run -d \
   --restart unless-stopped \
   --network max-net \
   --add-host=host.docker.internal:host-gateway \
-  -e MAX_SECRET='ТВОЙ_WEBHOOK_SECRET' \
-  -e MAX_TOKEN='ТВОЙ_MAX_BOT_TOKEN' \
-  -e OPENCLAW_URL='http://host.docker.internal:18789' \
-  -e OPENCLAW_TOKEN='ТВОЙ_GATEWAY_TOKEN' \
-  -e OPENCLAW_AGENT_ID='main' \
+  --env-file .env \
   -p 3001:3001 \
   max-adapter
 ```
 
 ---
 
-## 6. Создать webhook в MAX
+## 7. Создать webhook в MAX
 
 ⚠️ URL должен быть доступен извне (не localhost)
 
@@ -107,7 +114,7 @@ curl -X POST https://api.max.ru/bot/v1/subscriptions \
 
 ---
 
-## 7. Проверить связь из контейнера
+## 8. Проверить связь из контейнера
 
 ```bash
 docker exec -it max-adapter sh -lc "wget -qO- \
@@ -119,7 +126,7 @@ docker exec -it max-adapter sh -lc "wget -qO- \
 
 ---
 
-## 8. Смотреть логи
+## 9. Смотреть логи
 
 ```bash
 docker logs -f max-adapter
@@ -127,7 +134,7 @@ docker logs -f max-adapter
 
 ---
 
-## 9. Тест
+## 10. Тест
 
 Написать боту в MAX:
 
@@ -147,8 +154,13 @@ MAX → (webhook + secret) → max-adapter → OpenClaw → ответ → MAX
 
 ## Переменные окружения
 
-- `MAX_TOKEN` — токен бота MAX (для API вызовов)
-- `MAX_SECRET` — секрет webhook (проверка входящих запросов)
-- `OPENCLAW_URL` — URL OpenClaw API
-- `OPENCLAW_TOKEN` — токен OpenClaw
-- `OPENCLAW_AGENT_ID` — ID агента (например `main`)
+Все переменные задаются в файле `.env` (на основе `.env.example`).
+
+| Переменная | Обязательная | Описание |
+|---|---|---|
+| `MAX_TOKEN` | да | Токен бота MAX (для API вызовов) |
+| `MAX_SECRET` | да | Секрет webhook (проверка входящих запросов) |
+| `OPENCLAW_URL` | нет | URL OpenClaw API (по умолчанию `http://host.docker.internal:18789`) |
+| `OPENCLAW_TOKEN` | да | Токен OpenClaw Gateway |
+| `OPENCLAW_AGENT_ID` | нет | ID агента (по умолчанию `main`) |
+| `MAX_ALLOWED_USERS` | нет | Allowlist user_id через запятую. Если не задано — бот отвечает всем |
