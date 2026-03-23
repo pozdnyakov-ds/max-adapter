@@ -1,4 +1,7 @@
 import express from 'express'
+import { sendMaxMessage, editMaxMessage, extractMessageId } from './maxApi.js'
+import { saveRoute, getRoute } from './sessionStore.js'
+import { registerAnnounceEndpoint } from './openclawAnnounce.js'
 
 const app = express()
 app.use(express.json({ limit: '2mb' }))
@@ -6,7 +9,6 @@ app.use(express.json({ limit: '2mb' }))
 const PORT = 3001
 const MAX_SECRET = process.env.MAX_SECRET
 const MAX_TOKEN = process.env.MAX_TOKEN
-const MAX_API = 'https://platform-api.max.ru'
 
 const OPENCLAW_URL = process.env.OPENCLAW_URL || 'http://host.docker.internal:18789'
 const OPENCLAW_TOKEN = process.env.OPENCLAW_TOKEN
@@ -29,71 +31,6 @@ if (!MAX_TOKEN) {
 if (!OPENCLAW_TOKEN) {
   console.error('OPENCLAW_TOKEN is not set')
   process.exit(1)
-}
-
-app.get('/health', (req, res) => {
-  res.json({ ok: true })
-})
-
-async function sendMaxMessage({ userId, chatId, text }) {
-  const qs = new URLSearchParams()
-
-  if (userId) {
-    qs.set('user_id', String(userId))
-  } else if (chatId) {
-    qs.set('chat_id', String(chatId))
-  } else {
-    throw new Error('sendMaxMessage: userId or chatId is required')
-  }
-
-  const resp = await fetch(`${MAX_API}/messages?${qs.toString()}`, {
-    method: 'POST',
-    headers: {
-      Authorization: MAX_TOKEN,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ text }),
-  })
-
-  const raw = await resp.text()
-
-  if (!resp.ok) {
-    throw new Error(`MAX send failed: ${resp.status} ${raw}`)
-  }
-
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return raw
-  }
-}
-
-async function editMaxMessage({ messageId, text }) {
-  const resp = await fetch(`${MAX_API}/messages?message_id=${messageId}`, {
-    method: 'PUT',
-    headers: {
-      Authorization: MAX_TOKEN,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ text }),
-  })
-
-  const raw = await resp.text()
-
-  if (!resp.ok) {
-    throw new Error(`MAX edit failed: ${resp.status} ${raw}`)
-  }
-
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return raw
-  }
-}
-
-function extractMessageId(data) {
-  if (!data || typeof data !== 'object') return null
-  return data.message?.body?.mid ?? null
 }
 
 async function askOpenClaw({ userId, text }) {
@@ -129,6 +66,12 @@ async function askOpenClaw({ userId, text }) {
   return answer
 }
 
+app.get('/health', (req, res) => {
+  res.json({ ok: true })
+})
+
+registerAnnounceEndpoint(app)
+
 app.post('/webhook', async (req, res) => {
   try {
     const secret = req.header('X-Max-Bot-Api-Secret')
@@ -150,6 +93,10 @@ app.post('/webhook', async (req, res) => {
       if (ALLOWED_USERS && !ALLOWED_USERS.has(String(userId))) {
         console.log(`bot_started: user ${userId} is not in allowlist, ignoring`)
         return
+      }
+
+      if (userId) {
+        saveRoute(`max_${userId}`, { userId, chatId })
       }
 
       try {
@@ -179,6 +126,8 @@ app.post('/webhook', async (req, res) => {
         console.log(`message_created: user ${userId} is not in allowlist, ignoring`)
         return
       }
+
+      saveRoute(`max_${userId}`, { userId, chatId })
 
       // Отправляем индикатор ожидания
       let waitingMessageId = null

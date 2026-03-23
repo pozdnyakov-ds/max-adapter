@@ -6,6 +6,8 @@
 
 ```
 MAX → (webhook + secret) → max-adapter → OpenClaw → ответ → MAX
+                                ↑
+               OpenClaw → POST /openclaw/announce → MAX (async)
 ```
 
 Контейнер `max-adapter` обращается к OpenClaw через `host.docker.internal` — специальный DNS-адрес, который резолвится в IP хост-машины. Трафик идёт: max-adapter → хост → OpenClaw. Флаг `--add-host=host.docker.internal:host-gateway` при запуске контейнера делает этот адрес доступным.
@@ -165,6 +167,8 @@ docker logs -f max-adapter
 | `OPENCLAW_URL` | нет | `http://host.docker.internal:18789` | URL OpenClaw API |
 | `OPENCLAW_AGENT_ID` | нет | `main` | ID агента OpenClaw |
 | `ALLOWED_USERS` | нет | — | Список user_id через запятую. Если не задано — бот отвечает всем |
+| `OPENCLAW_ANNOUNCE_SECRET` | нет | — | Токен для `/openclaw/announce`. Если не задан — endpoint всегда возвращает 401 |
+| `ROUTE_STORE_TTL_HOURS` | нет | `168` | TTL хранилища маршрутов в часах |
 
 ### Allowlist: как узнать свой user_id
 
@@ -187,6 +191,49 @@ ALLOWED_USERS=4399699
 ```
 ALLOWED_USERS=4399699,123456789
 ```
+
+---
+
+## Асинхронная доставка из OpenClaw
+
+OpenClaw может самостоятельно инициировать отправку сообщения пользователю через endpoint `/openclaw/announce`. Маршрут к пользователю сохраняется автоматически при каждом входящем сообщении в MAX.
+
+**Endpoint:** `POST /openclaw/announce`
+
+**Авторизация:** `Authorization: Bearer <OPENCLAW_ANNOUNCE_SECRET>`
+
+**Тело запроса** (поддерживаются алиасы полей):
+
+| Поле | Алиасы | Обязательное |
+|---|---|---|
+| `user` | `openclawUser`, `recipient` | да |
+| `text` | `content`, `message` | да |
+| `sessionId` | `session` | нет |
+| `metadata` | — | нет |
+
+**Пример:**
+
+```bash
+curl -X POST https://ТВОЙ_ДОМЕН/openclaw/announce \
+  -H "Authorization: Bearer OPENCLAW_ANNOUNCE_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user": "max_4399699",
+    "text": "Задача выполнена"
+  }'
+```
+
+**Коды ответа:**
+
+| Код | Причина |
+|---|---|
+| 200 | Сообщение доставлено |
+| 400 | Нет `user` или `text` в payload |
+| 401 | Неверный или отсутствующий токен |
+| 404 | Маршрут не найден (пользователь ещё не писал боту или TTL истёк) |
+| 502 | Ошибка при отправке в MAX API |
+
+**Важно:** маршрут появляется после первого сообщения пользователя боту. Если пользователь ни разу не писал или истёк TTL (`ROUTE_STORE_TTL_HOURS`) — вернётся 404.
 
 ---
 
