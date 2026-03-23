@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install
 
-COPY server.js ./
+COPY server.js maxApi.js sessionStore.js openclawAnnounce.js ./
 
 EXPOSE 3001
 
