@@ -22,20 +22,28 @@ export function normalizeAnnouncePayload(payload) {
 export function registerAnnounceEndpoint(app) {
   app.post('/openclaw/announce', async (req, res) => {
     console.log('[announce] request received')
+    console.log('[announce] headers:', JSON.stringify({
+      'content-type': req.headers['content-type'],
+      'authorization': req.headers['authorization']
+        ? req.headers['authorization'].replace(/Bearer\s+\S{4}(\S+)/, (_, tail) => `Bearer ****${tail.slice(-4)}`)
+        : '(absent)',
+    }))
+    console.log('[announce] body:', JSON.stringify(req.body ?? {}))
 
     const auth = req.headers['authorization'] ?? ''
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
 
     if (!OPENCLAW_ANNOUNCE_SECRET || token !== OPENCLAW_ANNOUNCE_SECRET) {
-      console.log('[announce] auth failed')
+      console.log('[announce] auth failed: token mismatch or OPENCLAW_ANNOUNCE_SECRET not set')
       return res.status(401).json({ ok: false, error: 'unauthorized' })
     }
 
     const normalized = normalizeAnnouncePayload(req.body ?? {})
     if (!normalized) {
+      console.log('[announce] invalid payload — missing user or text')
       return res.status(400).json({ ok: false, error: 'invalid payload: user and text are required' })
     }
-    console.log('[announce] payload normalized:', normalized.openclawUser)
+    console.log('[announce] payload normalized:', JSON.stringify(normalized))
 
     const route = getRoute(normalized.openclawUser)
     if (!route) {
