@@ -1,5 +1,6 @@
 import { Bot } from '@maxhub/max-bot-api'
 
+const MAX_API = 'https://platform-api.max.ru'
 const bot = new Bot(process.env.MAX_TOKEN)
 
 export async function sendMaxMessage({ userId, chatId, text }) {
@@ -13,7 +14,20 @@ export async function sendMaxMessage({ userId, chatId, text }) {
 }
 
 export async function editMaxMessage({ messageId, text }) {
-  return await bot.api.editMessage(messageId, { text })
+  const resp = await fetch(`${MAX_API}/messages?message_id=${messageId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: process.env.MAX_TOKEN,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text }),
+  })
+
+  const raw = await resp.text()
+
+  if (!resp.ok) {
+    throw new Error(`MAX edit failed: ${resp.status} ${raw}`)
+  }
 }
 
 export function extractMessageId(data) {
