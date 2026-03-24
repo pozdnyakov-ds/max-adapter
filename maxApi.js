@@ -13,7 +13,7 @@ export async function sendMaxMessage({ userId, chatId, text }) {
 }
 
 export async function editMaxMessage({ messageId, text }) {
-  return await bot.api.editMessage(messageId, { body: { text } })
+  return await bot.api.editMessage(messageId, { text })
 }
 
 export function extractMessageId(data) {
